@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI Resume Screening</title>
+
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #eef2f7, #dbeafe);
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .card {
+    background: #fff;
+    width: 440px;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+    overflow-y: auto;
+    max-height: 95vh;
+  }
+
+  h2 {
+    text-align: center;
+    margin-bottom: 8px;
+  }
+
+  p {
+    font-size: 14px;
+    color: #555;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  label {
+    font-size: 13px;
+    font-weight: bold;
+  }
+
+  select, textarea, input[type="file"] {
+    width: 100%;
+    padding: 10px;
+    margin-top: 6px;
+    margin-bottom: 14px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 120px;
+  }
+
+  button {
+    width: 100%;
+    padding: 12px;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 15px;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: #1e40af;
+  }
+
+  #status {
+    margin-top: 12px;
+    text-align: center;
+    font-size: 14px;
+  }
+
+  #result {
+    margin-top: 16px;
+    font-size: 14px;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 10px 0;
+  }
+
+  .footer {
+    font-size: 11px;
+    text-align: center;
+    color: #777;
+    margin-top: 12px;
+  }
+</style>
+</head>
+
+<body>
+
+<div class="card">
+  <h2>AI Resume Screening</h2>
+  <p>Upload resume to get AI-powered screening & score</p>
+
+  <form id="resumeForm">
+    <label>Job Role</label>
+    <select id="role" required>
+      <option value="">-- Select a Role --</option>
+    </select>
+
+    <label>Job Description</label>
+    <textarea id="jobDescription" required></textarea>
+
+    <label>Upload Resume (PDF/DOCX)</label>
+    <input type="file" id="resume" accept=".pdf,.docx" required>
+
+    <button type="submit">Upload & Analyze</button>
+  </form>
+
+  <div id="status"></div>
+  <div id="result" style="display:none;"></div>
+
+  <div class="footer">
+    Powered by NextGen Automation
+  </div>
+</div>
+
+<!-- External job role configuration -->
+<script src="roles-config.js"></script>
+
+<script>
+  const roleSelect = document.getElementById("role");
+  const jobDescTextarea = document.getElementById("jobDescription");
+  const status = document.getElementById("status");
+  const resultDiv = document.getElementById("result");
+
+  // Populate job roles
+  Object.keys(ROLE_CONFIG).forEach(role => {
+    const option = document.createElement("option");
+    option.value = role;
+    option.textContent = role;
+    roleSelect.appendChild(option);
+  });
+
+  // Auto-fill job description
+  roleSelect.addEventListener("change", () => {
+    const selectedRole = roleSelect.value;
+    jobDescTextarea.value = selectedRole
+      ? ROLE_CONFIG[selectedRole].description.trim()
+      : "";
+  });
+
+  // Submit handler
+  document.getElementById("resumeForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    status.style.color = "#333";
+    status.innerText = "⏳ Analyzing resume with AI...";
+    resultDiv.style.display = "none";
+    resultDiv.innerHTML = "";
+
+    const formData = new FormData();
+    formData.append("file", document.getElementById("resume").files[0]);
+    formData.append("role", roleSelect.value);
+    formData.append("jobDescription", jobDescTextarea.value);
+
+    try {
+      const response = await fetch(
+        "https://hook.eu1.make.com/w9bwupjmjbiqsikzvuxzy6bdjciwv4by",
+        { method: "POST", body: formData }
+      );
+
+      const data = await response.json();
+
+      status.style.color = "green";
+      status.innerText = "✅ Analysis completed";
+
+      const redFlagsHtml = data.red_flags && data.red_flags.length
+        ? `<ul>${data.red_flags.map(f => `<li>${f}</li>`).join("")}</ul>`
+        : `<p>None identified</p>`;
+
+      let recColor = "#2563eb";
+      if (data.recommendation === "Reject") recColor = "#dc2626";
+      if (data.recommendation === "Review") recColor = "#d97706";
+      if (data.recommendation === "Interview") recColor = "#16a34a";
+
+      resultDiv.style.display = "block";
+      resultDiv.innerHTML = `
+        <h3>Screening Result</h3>
+
+        <p><b>Name:</b> ${data.name || "-"}</p>
+        <p><b>Email:</b> ${data.email || "-"}</p>
+        <p><b>Phone:</b> ${data.phone_number || "-"}</p>
+        <p><b>Total Experience:</b> ${data.total_experience || "-"}</p>
+
+        <hr>
+
+        <p><b>Skill Match:</b> ${data.skill_match_percentage}%</p>
+        <p><b>Experience Match:</b> ${data.experience_match}</p>
+        <p><b>Fit Score:</b> ${data.fit_score}/100</p>
+
+        <hr>
+
+        <b>Red Flags:</b>
+        ${redFlagsHtml}
+
+        <hr>
+
+        <p style="font-size:16px;">
+          <b>Recommendation:</b>
+          <span style="color:${recColor}; font-weight:bold;">
+            ${data.recommendation}
+          </span>
+        </p>
+      `;
+    } catch (err) {
+      status.style.color = "red";
+      status.innerText = "❌ Error processing resume";
+    }
+  });
+</script>
+
+</body>
+</html>
